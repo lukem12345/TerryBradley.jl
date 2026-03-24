@@ -6,4 +6,8 @@ I wanted a complete Julia pipeline that captures:
 - learning the Terry-Bradley model
 - post-processing ranks
 - visualizing distributions.
-. A mix of vibe-coding and vanilla coding was used in getting things set up. I was not aiming for a perfect reproduction of the original environment, e.g., ensuring the same game data is downloaded, same visuliazation styles, etc.
+A mix of vibe-coding and vanilla coding was used in getting things set up. I was not aiming for a perfect reproduction of the original environment, e.g., ensuring the same game data is downloaded, same visualization styles, etc.
+
+<p align='center'>
+<img src='./mlb_rankings_2025.svg' width='512' alt='Histograms of rankings for the 2025 season'>
+</p>
