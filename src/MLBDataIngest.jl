@@ -267,6 +267,7 @@ function _score_ingest(db)
     end
 
     # Insert those scores.
+    appender = DuckDB.Appender(db, "scores")
     for day_results in results
         for (game_id, home_runs, away_runs) in day_results
             DuckDB.append(appender, game_id)
