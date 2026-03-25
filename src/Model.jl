@@ -35,13 +35,38 @@ end
 
 Turing model for a Bradley-Terry paired comparison.
 
+Unlike the reference model, this one operates directly in linear space, and
+requires a clamp to keep θ in the range [0,1]. The logit used in the reference
+model does this in a smooth fashion, but is slower.
+
 Args:
     x : N×2 integer matrix of (home_id, away_id) per game.
     y : N-vector of outcomes (1 = home win, 0 = away win).
     d : Number of teams (length of the α vector).
 """
 @model function bradley_terry(x, y, d)
-    # Half-normal prior on each team's latent ability.
+    α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
+    for i in 1:length(y)
+        α₁, α₂ = α[x[i, 1]], α[x[i, 2]]
+        θ    = α₁ / (α₁ + α₂)
+        y[i] ~ Bernoulli(clamp(θ, 0, 1))
+    end
+end
+
+"""
+    bradley_terry(x, y, d)
+
+Turing model for a Bradley-Terry paired comparison.
+
+This is the reference model given by Damon C. Roberts in his blog post on Stan
+vs. Turing.jl benchmarking.
+
+Args:
+    x : N×2 integer matrix of (home_id, away_id) per game.
+    y : N-vector of outcomes (1 = home win, 0 = away win).
+    d : Number of teams (length of the α vector).
+"""
+@model function bradley_terry_linspace(x, y, d)
     α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
     for i in 1:length(y)
         θ    = log(α[x[i, 1]]) - log(α[x[i, 2]])
