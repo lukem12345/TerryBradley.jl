@@ -81,114 +81,159 @@ _score_table = """
 """
 
 """
-    initialize_mlb_tables!(con)
+    initialize_mlb_tables!(db)
 
-Creates all necessary tables. Safe to call on an existing database — all
-statements use `create table if not exists`.
+Creates all necessary tables. Safe to call on an existing database —
+all statements use `create table if not exists`. Accepts a `DuckDB.DB`
+object and opens its own connection internally.
 """
-function initialize_mlb_tables!(con)
-    _gen_table(sql_cmd) = _dbe(con, sql_cmd)
-
-    _gen_table(_seasons_table);  @info "Initialized the seasons table."
-    _gen_table(_teams_table);    @info "Initialized the teams table."
-    _gen_table(_schedule_table); @info "Initialized the schedule table."
-    _gen_table(_score_table);    @info "Initialized the score table."
-    @info "Completed the DB initialization."
+function initialize_mlb_tables!(db)
+    con = DBInterface.connect(db)
+    try
+        _dbe(con, _seasons_table);  @info "Initialized the seasons table."
+        _dbe(con, _teams_table);    @info "Initialized the teams table."
+        _dbe(con, _schedule_table); @info "Initialized the schedule table."
+        _dbe(con, _score_table);    @info "Initialized the score table."
+        @info "Completed the DB initialization."
+    finally
+        DBInterface.close!(con)
+    end
 end
+
+# ============================================================
+# Ingestion
+# ============================================================
 
 _season_data_keys = [
-     "seasonId",
-     "hasWildcard",
-     "preSeasonStartDate",
-     "seasonStartDate",
-     "regularSeasonStartDate",
-     "regularSeasonEndDate",
-     "seasonEndDate",
-     "offSeasonStartDate",
-     "offSeasonEndDate",
-     ]
+    "seasonId",
+    "hasWildcard",
+    "preSeasonStartDate",
+    "seasonStartDate",
+    "regularSeasonStartDate",
+    "regularSeasonEndDate",
+    "seasonEndDate",
+    "offSeasonStartDate",
+    "offSeasonEndDate",
+]
 
-function _season_ingest(con)
-    for year in 2019:2025
-        data = mlb_get("seasons/$year")
-        for s in data["seasons"]
-            get_key(key) = get(s, key, missing)
-            _dbe(con, """
-                insert into seasons values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                on conflict do nothing;
-            """,
-            get_key.(_season_data_keys))
-        end
-    end
-end
-
-function _teams_ingest(con)
-    missing_seasons = _dbe(con, """
-        select s.season_id
-        from teams as t
-            right join seasons as s on t.season_id = s.season_id
-        where t.season_id is null
-    """) |> DataFrame
-
-    for season_id in missing_seasons.season_id
-        data = mlb_get("teams"; season = season_id)
-        for t in data["teams"]
-            _dbe(con, """
-                insert into teams values (?, ?, ?, ?)
-                on conflict do nothing;
-            """, [
-                get(t, "season",        missing),
-                string(get(t, "id",     missing)),
-                get(t, "name",          missing),
-                get(t, "abbreviation",  missing),
-            ])
-        end
-    end
-end
-
-function _schedule_ingest(con)
-    # Get all game IDs already stored.
-    stored = _dbe(con, "select game_id from schedule") |> DataFrame
-    stored_set = Set(stored.game_id)
-
-    for season_id in 2019:2025
-        data = mlb_get("schedule"; season = season_id)
-        for date_entry in data["dates"]
-            for game in date_entry["games"]
-                game_id = string(game["gamePk"])
-                game_id in stored_set && continue
-                try
-                    away = game["teams"]["away"]
-                    home = game["teams"]["home"]
-                    _dbe(con, """
-                        insert into schedule values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        on conflict do nothing;
-                    """, [
-                        game["season"],
-                        date_entry["date"],
-                        string(game["gamePk"]),
-                        game["doubleHeader"],
-                        string(away["team"]["id"]),
-                        away["leagueRecord"]["wins"],
-                        away["leagueRecord"]["losses"],
-                        string(home["team"]["id"]),
-                        home["leagueRecord"]["wins"],
-                        home["leagueRecord"]["losses"],
-                    ])
-                catch e
-                    @warn "Skipping game $game_id: $e"
-                    continue
-                end
+function _season_ingest(db)
+    con = DBInterface.connect(db)
+    try
+        for year in 2019:2025
+            data = mlb_get("seasons/$year")
+            for s in data["seasons"]
+                get_key(key) = get(s, key, missing)
+                _dbe(con, """
+                    insert into seasons values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    on conflict do nothing;
+                """, get_key.(_season_data_keys))
             end
         end
-        @info "Ingested season $season_id."
+    finally
+        DBInterface.close!(con)
     end
 end
 
-function _score_ingest(con)
+function _teams_ingest(db)
+    con = DBInterface.connect(db)
+    try
+        missing_seasons = _dbe(con, """
+            select s.season_id
+            from teams as t
+                right join seasons as s on t.season_id = s.season_id
+            where t.season_id is null
+        """) |> DataFrame
+
+        for season_id in missing_seasons.season_id
+            data = mlb_get("teams"; season = season_id)
+            for t in data["teams"]
+                _dbe(con, """
+                    insert into teams values (?, ?, ?, ?)
+                    on conflict do nothing;
+                """, [
+                    get(t, "season",       missing),
+                    string(get(t, "id",    missing)),
+                    get(t, "name",         missing),
+                    get(t, "abbreviation", missing),
+                ])
+            end
+        end
+    finally
+        DBInterface.close!(con)
+    end
+end
+
+function _schedule_ingest(db)
+    con = DBInterface.connect(db)
+    try
+        stored     = _dbe(con, "select game_id from schedule") |> DataFrame
+        stored_set = Set(stored.game_id)
+
+        for season_id in 2019:2025
+            data = mlb_get("schedule"; season = season_id)
+            for date_entry in data["dates"]
+                for game in date_entry["games"]
+                    game_id = string(game["gamePk"])
+                    game_id in stored_set && continue
+                    try
+                        away = game["teams"]["away"]
+                        home = game["teams"]["home"]
+                        _dbe(con, """
+                            insert into schedule values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            on conflict do nothing;
+                        """, [
+                            game["season"],
+                            date_entry["date"],
+                            string(game["gamePk"]),
+                            game["doubleHeader"],
+                            string(away["team"]["id"]),
+                            away["leagueRecord"]["wins"],
+                            away["leagueRecord"]["losses"],
+                            string(home["team"]["id"]),
+                            home["leagueRecord"]["wins"],
+                            home["leagueRecord"]["losses"],
+                        ])
+                    catch e
+                        @warn "Skipping game $game_id: $e"
+                    end
+                end
+            end
+            @info "Ingested season $season_id."
+        end
+    finally
+        DBInterface.close!(con)
+    end
+end
+
+"""
+    _fetch_date_scores(game_date, stored_set)
+Fetches scores for all games on `game_date` from the MLB API.
+Pure HTTP — no database access — so safe to call concurrently.
+Returns a vector of (game_id, home_runs, away_runs) tuples,
+skipping games already in `stored_set`.
+"""
+function _fetch_date_scores(game_date, stored_set)
+    data = mlb_get("schedule"; date = game_date)
+    rows = []
+    for date_entry in data["dates"]
+        for game in date_entry["games"]
+            game_id   = string(game["gamePk"])
+            game_id in stored_set && continue
+            home_runs = get(get(get(game, "teams", Dict()), "home", Dict()), "score", missing)
+            away_runs = get(get(get(game, "teams", Dict()), "away", Dict()), "score", missing)
+            (ismissing(home_runs) || ismissing(away_runs)) && continue
+            push!(rows, (game_id, home_runs, away_runs))
+        end
+    end
+    return rows
+end
+
+function _score_ingest(db)
     today = Dates.today()
 
-    # Select distinct game dates.
+    # Read-only setup queries on a dedicated connection, closed before
+    # any concurrent work begins.
+    con = DBInterface.connect(db)
     dates = _dbe(con, """
         select distinct schedule.game_date
         from schedule
@@ -201,104 +246,105 @@ function _score_ingest(con)
                     and seasons.regular_season_end
         order by schedule.game_date
     """) |> DataFrame
-
     stored     = _dbe(con, "select game_id from scores") |> DataFrame
     stored_set = Set(stored.game_id)
+    DBInterface.close!(con)
 
     counter = Threads.Atomic{Int}(0)
+    n_dates = length(dates.game_date)
 
     # Fetch the scores for games on those dates.
     results = asyncmap(dates.game_date; ntasks = 20) do game_date
         try
-            data = mlb_get("schedule"; date = game_date)
-            rows = []
-            for date_entry in data["dates"]
-                for game in date_entry["games"]
-                    game_id   = string(game["gamePk"])
-                    game_id in stored_set && continue
-                    home_runs = get(get(get(game, "teams", Dict()), "home", Dict()), "score", missing)
-                    away_runs = get(get(get(game, "teams", Dict()), "away", Dict()), "score", missing)
-                    (ismissing(home_runs) || ismissing(away_runs)) && continue
-                    push!(rows, (game_id, home_runs, away_runs))
-                end
-            end
-            return rows
+            return _fetch_date_scores(game_date, stored_set)
         catch e
             @warn "Skipping date $game_date: $e"
             return []
         finally
             n = Threads.atomic_add!(counter, 1) + 1
-            if n % 50 == 0
-                @info "Fetched $n / $(length(dates.game_date)) dates..."
-            end
+            n % 50 == 0 && @info "Fetched $n / $n_dates dates..."
         end
     end
 
     # Insert those scores.
     for day_results in results
         for (game_id, home_runs, away_runs) in day_results
-            _dbe(con,
-                "insert into scores values (?, ?, ?)",
-                [game_id, home_runs, away_runs])
+            DuckDB.append(appender, game_id)
+            DuckDB.append(appender, home_runs)
+            DuckDB.append(appender, away_runs)
+            DuckDB.end_row(appender)
         end
+    end
+    DuckDB.close(appender)
+
+    con = DBInterface.connect(db)
+    try
+        DBInterface.execute(con, "CHECKPOINT")
+    finally
+        DBInterface.close!(con)
     end
 
     @info "Score ingestion complete."
 end
 
 """
-    ingest_mlb_data!(con)
+    ingest_mlb_data!(db)
 
 Runs the full ingestion pipeline: seasons → teams → schedule → scores.
+Accepts a `DuckDB.DB` object. Each stage opens and closes its own
+connection so connections are never shared across threads.
 """
-function ingest_mlb_data!(con)
-    _season_ingest(con);   @info "Ingested the season data."
-    _teams_ingest(con);    @info "Ingested the teams data."
-    _schedule_ingest(con); @info "Ingested the schedule data."
-    _score_ingest(con);    @info "Ingested the score data."
+function ingest_mlb_data!(db)
+    _season_ingest(db);   @info "Ingested the season data."
+    _teams_ingest(db);    @info "Ingested the teams data."
+    _schedule_ingest(db); @info "Ingested the schedule data."
+    _score_ingest(db);    @info "Ingested the score data."
 end
 
-
 """
-    db_to_df(con, season)
+    db_to_df(db, season)
 
-Pulls regular-season game results for `season` from the open DuckDB
-connection `con`. Returns a DataFrame with columns:
-    game_id, home_abbr, away_abbr, home_win.
+Pulls regular-season game results for `season` from the DuckDB database.
+Returns a DataFrame with columns: game_id, home_abbr, away_abbr, home_win.
 """
-function db_to_df(con, season::String)
-    df = _dbe(con, """
-        with a as (
+function db_to_df(db, season::String)
+    con = DBInterface.connect(db)
+    try
+        df = _dbe(con, """
+            with a as (
+                select
+                    scores.game_id
+                    , schedule.home_team
+                    , scores.home_runs
+                    , schedule.away_team
+                    , scores.away_runs
+                from scores
+                    left join schedule
+                        on scores.game_id = schedule.game_id
+                    left join seasons
+                        on schedule.season_id = seasons.season_id
+                where
+                    schedule.season_id = '$season'
+                    and schedule.game_date
+                        between seasons.regular_season_start
+                            and seasons.regular_season_end
+            )
             select
-                scores.game_id
-                , schedule.home_team
-                , scores.home_runs
-                , schedule.away_team
-                , scores.away_runs
-            from scores
-                left join schedule
-                    on scores.game_id = schedule.game_id
-                left join seasons
-                    on schedule.season_id = seasons.season_id
-            where
-                schedule.season_id = '$season'
-                and schedule.game_date
-                    between seasons.regular_season_start
-                        and seasons.regular_season_end
-        )
-        select
-            a.game_id
-            , ht.team_abbr  as home_abbr
-            , awt.team_abbr as away_abbr
-            , (case
-                when home_runs > away_runs then 1
-                else 0
-            end) as home_win
-        from a
-            left join teams ht  on a.home_team = ht.team_id  and ht.season_id  = '$season'
-            left join teams awt on a.away_team = awt.team_id and awt.season_id = '$season'
+                a.game_id
+                , ht.team_abbr  as home_abbr
+                , awt.team_abbr as away_abbr
+                , (case
+                    when home_runs > away_runs then 1
+                    else 0
+                end) as home_win
+            from a
+                left join teams ht  on a.home_team = ht.team_id  and ht.season_id  = '$season'
+                left join teams awt on a.away_team = awt.team_id and awt.season_id = '$season'
         """) |> DataFrame
-    return dropmissing(df, [:home_abbr, :away_abbr])
+        return dropmissing(df, [:home_abbr, :away_abbr])
+    finally
+        DBInterface.close!(con)
+    end
 end
 
-end # module DataIngest
+end # module MLBDataIngest

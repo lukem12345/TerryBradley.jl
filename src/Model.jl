@@ -10,9 +10,9 @@ using ..MLBDataIngest
 
 using DataFrames
 using DuckDB
-using Turing
-using MCMCChains
 using Logging
+using MCMCChains
+using Turing
 
 # NUTS sampler settings.
 const CHAINS    = 4

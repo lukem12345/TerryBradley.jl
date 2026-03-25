@@ -11,9 +11,7 @@ module Visualization
 
 using DataFrames
 using Statistics
-using StatsBase: countmap
 using Plots
-using StatsPlots
 using Logging
 
 const BG      = RGB(1,    1,    1)

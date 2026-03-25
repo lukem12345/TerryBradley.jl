@@ -1,28 +1,28 @@
+# Run mlb_ingest.jl to populate the database before running this script.
 using DataFrames
 using DuckDB
 using Logging
 using TerryBradley
 
-const DB_PATH = "./mlb_pred/data/db_2019_onwards.db"
+const DB_PATH = "./mlb_pred/data/db_2019_onwards"
 const SEASON  = "2025"
 
-mkpath(dirname(DB_PATH))
+# Load the exported Parquet files back into a fresh in-memory database.
+db  = DuckDB.DB()
+con = DBInterface.connect(db)
 
-con = DBInterface.connect(DuckDB.DB, DB_PATH)
+DuckDB.query(con, "IMPORT DATABASE '$DB_PATH'")
+@info "Imported database from $DB_PATH"
 
-try
-    MLBDataIngest.initialize_mlb_tables!(con)
-    MLBDataIngest.ingest_mlb_data!(con)
-    df = MLBDataIngest.db_to_df(con, SEASON)
+# Verify.
+println(DBInterface.execute(con, "SHOW TABLES") |> DataFrame)
 
-    ids = Model.gen_ids(df)
-    @info "Loaded $(DataFrames.nrow(df)) games for season $SEASON with $(length(ids)) teams."
+df = MLBDataIngest.db_to_df(db, SEASON)
 
-    (; fit, ranks) = Model.fit_model(df, ids)
+ids = Model.gen_ids(df)
+@info "Loaded $(DataFrames.nrow(df)) games for season $SEASON with $(length(ids)) teams."
 
-    Visualization.summary(ranks)
-    Visualization.plot_ranks(ranks, SEASON)
-finally
-    DBInterface.close!(con)
-    @info "Database connection closed."
-end
+@time (; fit, ranks) = Model.fit_model(df, ids)
+
+Visualization.summary(ranks)
+Visualization.plot_ranks(ranks, SEASON)
