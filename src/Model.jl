@@ -54,7 +54,7 @@ Args:
 end
 
 """
-    bradley_terry(x, y, d)
+    bradley_terry_logspace(x, y, d)
 
 Turing model for a Bradley-Terry paired comparison.
 
@@ -66,7 +66,7 @@ Args:
     y : N-vector of outcomes (1 = home win, 0 = away win).
     d : Number of teams (length of the α vector).
 """
-@model function bradley_terry_linspace(x, y, d)
+@model function bradley_terry_logspace(x, y, d)
     α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
     for i in 1:length(y)
         θ    = log(α[x[i, 1]]) - log(α[x[i, 2]])
