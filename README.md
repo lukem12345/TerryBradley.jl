@@ -22,6 +22,24 @@ and
 end
 ```
 
+That is,
+
+$\alpha_k \sim \mathcal{HN}(0, 1, [0, \infty)), \quad k = 1, \ldots, d,$
+
+$\theta_i = \log \alpha_{x_{i,1}} - \log \alpha_{x_{i,2}},$
+
+$y_i \sim \text{Bernoulli}(\text{logit}^{-1}(\theta_i)),$
+
+and
+
+$\alpha_k \sim \mathcal{HN}(0, 1, [0, \infty)), \quad k = 1, \ldots, d,$
+
+$\theta_i = \frac{\alpha_{x_{i,1}}}{\alpha_{x_{i,1}} + \alpha_{x_{i,2}}},$
+
+$y_i \sim \text{Bernoulli} \left(\text{clamp}(\theta_i, 0, 1)\right).$
+
+(The clamp function is not strictly necessarily in the continuous case, but is needed for numerical purposes.)
+
 The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed.
 
 Some quick benchmarks (just using `@time`):
