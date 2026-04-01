@@ -9,6 +9,8 @@ Functions:
 """
 module Visualization
 
+export plot_ranks, rank_summary
+
 using DataFrames
 using Statistics
 using Plots
@@ -110,12 +112,12 @@ function plot_ranks(ranks::DataFrame, season::String)
 end
 
 """
-    summary(ranks)
+    rank_summary(ranks)
 
 Prints a table of median rank with 5th/95th percentile credible intervals,
 sorted best to worst.
 """
-function summary(ranks::DataFrame)
+function rank_summary(ranks::DataFrame)
     tbl = combine(groupby(ranks, :Team)) do g
         r = g.Rank
         (median_rank = median(r), lower_90 = quantile(r, 0.05), upper_90 = quantile(r, 0.95))

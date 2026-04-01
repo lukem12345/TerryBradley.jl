@@ -6,6 +6,8 @@ posterior rankings and alpha samples.
 """
 module Model
 
+export fit_model, gen_ids, BTLinSpace, BTLogSpace
+
 using ..MLBDataIngest
 
 using DataFrames
@@ -30,8 +32,18 @@ function gen_ids(df)
     return Dict(t => i for (i, t) in enumerate(teams))
 end
 
+abstract type AbstractBradleyTerryModel end
+
+struct BTLinSpace <: AbstractBradleyTerryModel end
+struct BTLogSpace <: AbstractBradleyTerryModel end
+
+bradley_terry(::BTLinSpace, args...) =
+  bradley_terry_linspace(args...)
+bradley_terry(::BTLogSpace, args...) =
+  bradley_terry_logspace(args...)
+
 """
-    bradley_terry(x, y, d)
+    bradley_terry_linspace(x, y, d)
 
 Turing model for a Bradley-Terry paired comparison.
 
@@ -44,7 +56,7 @@ Args:
     y : N-vector of outcomes (1 = home win, 0 = away win).
     d : Number of teams (length of the α vector).
 """
-@model function bradley_terry(x, y, d)
+@model function bradley_terry_linspace(x, y, d)
     α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
     for i in 1:length(y)
         α₁, α₂ = α[x[i, 1]], α[x[i, 2]]
@@ -119,10 +131,10 @@ Fits the Bradley-Terry model and returns a named tuple with:
     fit    : raw Turing Chains object.
     ranks  : long-format DataFrame of posterior rankings.
 """
-function fit_model(df, ids)
+function fit_model(df, ids, BTM::T) where {T <: AbstractBradleyTerryModel}
     home = [ids[team] for team in df.home_abbr]
     away = [ids[team] for team in df.away_abbr]
-    mod  = bradley_terry(hcat(home, away), df.home_win, length(ids))
+    mod  = bradley_terry(BTM, hcat(home, away), df.home_win, length(ids))
     fit  = Turing.sample(mod, NUTS(), MCMCThreads(), ITER_WARM + ITER_SAMP, CHAINS)
     return (fit = fit, ranks = rank_teams(fit, ids))
 end

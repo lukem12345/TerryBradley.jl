@@ -5,6 +5,8 @@ Ingests data from the MLB API into a local DuckDB database.
 """
 module MLBDataIngest
 
+export db_to_df
+
 using DataFrames
 using Dates
 using DuckDB
