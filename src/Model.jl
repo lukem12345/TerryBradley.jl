@@ -10,13 +10,14 @@ export fit_model, gen_ids, BTLinSpace, BTLogSpace
 
 using ..MLBDataIngest
 
+using AbstractMCMC
 using DataFrames
 using DuckDB
 using Logging
 using MCMCChains
 using Turing
 
-# NUTS sampler settings.
+# Sampler settings.
 const CHAINS    = 4
 const ITER_WARM = 1_000
 const ITER_SAMP = 3_000
@@ -131,11 +132,11 @@ Fits the Bradley-Terry model and returns a named tuple with:
     fit    : raw Turing Chains object.
     ranks  : long-format DataFrame of posterior rankings.
 """
-function fit_model(df, ids, BTM::T) where {T <: AbstractBradleyTerryModel}
+function fit_model(df, ids, BTM::T, sampler::U) where {T <: AbstractBradleyTerryModel, U <: AbstractMCMC.AbstractSampler}
     home = [ids[team] for team in df.home_abbr]
     away = [ids[team] for team in df.away_abbr]
     mod  = bradley_terry(BTM, hcat(home, away), df.home_win, length(ids))
-    fit  = Turing.sample(mod, NUTS(), MCMCThreads(), ITER_WARM + ITER_SAMP, CHAINS)
+    fit  = Turing.sample(mod, sampler, MCMCThreads(), ITER_WARM + ITER_SAMP, CHAINS)
     return (fit = fit, ranks = rank_teams(fit, ids))
 end
 
