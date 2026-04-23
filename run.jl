@@ -28,7 +28,7 @@ ids = gen_ids(df)
 sampler = Turing.NUTS()
 #sampler = Turing.HMC(0.01, 10)
 #sampler = Turing.SGLD()
-@time (; fit, ranks) = fit_model(df, ids, BTLogSpace(), sampler)
+@time (; fit, ranks) = fit_model(df, ids, BTLogSpace(), sampler, 3_000)
 
 ranks = filter(r -> r.iter > TerryBradley.Model.ITER_WARM, ranks)
 rank_summary(ranks)

@@ -52,6 +52,8 @@ Unlike the reference model, this one operates directly in linear space, and
 requires a clamp to keep θ in the range [0,1]. The logit used in the reference
 model does this in a smooth fashion, but is slower.
 
+This model and bradley_terry_logspace are algebraically equivalent, aside from the priors. (Recall that BernoulliLogit takes the log-odds as its parameter.)
+
 Args:
     x : N×2 integer matrix of (home_id, away_id) per game.
     y : N-vector of outcomes (1 = home win, 0 = away win).
@@ -84,6 +86,29 @@ Args:
     for i in 1:length(y)
         θ    = log(α[x[i, 1]]) - log(α[x[i, 2]])
         y[i] ~ BernoulliLogit(θ)
+    end
+end
+
+# These α are "utilities", unlike the playing "strengths"/ "Spielstaerken" α that the previous
+# models were using.
+@model function bradley_terry_utility(x, y, d)
+    α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
+    for i in 1:length(y)
+        θ    = α[x[i, 1]] - α[x[i, 2]]
+        y[i] ~ BernoulliLogit(θ)
+    end
+end
+
+# This also uses utility α.
+# It just has a prior that the α are normally distributed,
+# i.e., it performs probit regression where BT performs logit regression.
+# In the limit of more data, the BT and TM models will converge. This
+# choice is only impactful for data-scarce scenarios.
+@model function thurstone_mosteller_utility(x, y, d)
+    α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
+    for i in 1:length(y)
+        θ    = α[x[i, 1]] - α[x[i, 2]]
+        y[i] ~ Bernoulli(cdf.(Normal(0.0, 1.0), θ))
     end
 end
 
@@ -132,11 +157,11 @@ Fits the Bradley-Terry model and returns a named tuple with:
     fit    : raw Turing Chains object.
     ranks  : long-format DataFrame of posterior rankings.
 """
-function fit_model(df, ids, BTM::T, sampler::U) where {T <: AbstractBradleyTerryModel, U <: AbstractMCMC.AbstractSampler}
+function fit_model(df, ids, BTM::T, sampler::U, iter_samp=ITER_SAMP) where {T <: AbstractBradleyTerryModel, U <: AbstractMCMC.AbstractSampler}
     home = [ids[team] for team in df.home_abbr]
     away = [ids[team] for team in df.away_abbr]
     mod  = bradley_terry(BTM, hcat(home, away), df.home_win, length(ids))
-    fit  = Turing.sample(mod, sampler, MCMCThreads(), ITER_WARM + ITER_SAMP, CHAINS)
+    fit  = Turing.sample(mod, sampler, MCMCThreads(), ITER_WARM + iter_samp, CHAINS)
     return (fit = fit, ranks = rank_teams(fit, ids))
 end
 
