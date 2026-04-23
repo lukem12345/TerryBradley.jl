@@ -1,4 +1,4 @@
-This repo contains different versions of the Bradley-Terry ranking model, and executes them on MLB data.
+This repo contains different versions of the Bradley-Terry ranking model, and the related Thurstone-Mosteller model, and executes them on MLB data.
 
 In particular, we have:
 ```julia
@@ -10,7 +10,7 @@ In particular, we have:
     end
 end
 ```
-and
+,
 ```julia
 @model function bradley_terry(x, y, d)
     α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
@@ -18,6 +18,28 @@ and
         α₁, α₂ = α[x[i, 1]], α[x[i, 2]]
         θ    = α₁ / (α₁ + α₂)
         y[i] ~ Bernoulli(clamp(θ, 0, 1))
+    end
+end
+```
+
+,
+```julia
+@model function bradley_terry_utility(x, y, d)
+    α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
+    for i in 1:length(y)
+        θ    = α[x[i, 1]] - α[x[i, 2]]
+        y[i] ~ BernoulliLogit(θ)
+    end
+end
+```
+
+, and
+```julia
+@model function thurstone_mosteller_utility(x, y, d)
+    α ~ filldist(truncated(Normal(0.0, 1.0), 0.0, Inf), d)
+    for i in 1:length(y)
+        θ    = α[x[i, 1]] - α[x[i, 2]]
+        y[i] ~ Bernoulli(cdf.(Normal(0.0, 1.0), θ))
     end
 end
 ```
@@ -40,7 +62,9 @@ $y_i \sim \text{Bernoulli} \left(\text{clamp}(\theta_i, 0, 1)\right).$
 
 (The clamp function is not strictly necessarily in the continuous case, but is needed for numerical purposes.)
 
-The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed.
+The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed. It is algebraically equivalent to the first model.
+
+The second and third models are written using the "utility" formulation of the parameters $a$, as opposed to the first two which interpret the parameters as the "playing strengths"/ "Spielstärken". This utility formulation of the Bradley-Terry model is much faster to sample. The Thurstone-Mosteller model is similar to the Bradley-Terry model, but performs probit regression. These two models should yield the same rankings given sufficient data.
 
 Some quick benchmarks (just using `@time`):
 Original (log-space):
