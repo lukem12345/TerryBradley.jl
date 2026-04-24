@@ -62,7 +62,7 @@ $y_i \sim \text{Bernoulli} \left(\text{clamp}(\theta_i, 0, 1)\right).$
 
 (The clamp function is not strictly necessarily in the continuous case, but is needed for numerical purposes.)
 
-The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed. It is algebraically equivalent to the first model.
+The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed. It is algebraically equivalent to the first model; the `BernoulliLogit` function takes logodds as its argument.
 
 The second and third models are written using the "utility" formulation of the parameters $a$, as opposed to the first two which interpret the parameters as the "playing strengths"/ "Spielstärken". This utility formulation of the Bradley-Terry model is much faster to sample. The Thurstone-Mosteller model is similar to the Bradley-Terry model, but performs probit regression. These two models should yield the same rankings given sufficient data.
 
