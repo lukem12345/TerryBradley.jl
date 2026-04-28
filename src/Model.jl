@@ -6,7 +6,7 @@ posterior rankings and alpha samples.
 """
 module Model
 
-export fit_model, gen_ids, BTLinSpace, BTLogSpace
+export fit_model, gen_ids, BTLinSpace, BTLogSpace, BTUtility, BTThurstoneMosteller
 
 using ..MLBDataIngest
 
@@ -35,13 +35,19 @@ end
 
 abstract type AbstractBradleyTerryModel end
 
-struct BTLinSpace <: AbstractBradleyTerryModel end
-struct BTLogSpace <: AbstractBradleyTerryModel end
+struct BTLinSpace           <: AbstractBradleyTerryModel end
+struct BTLogSpace           <: AbstractBradleyTerryModel end
+struct BTUtility            <: AbstractBradleyTerryModel end
+struct BTThurstoneMosteller <: AbstractBradleyTerryModel end
 
 bradley_terry(::BTLinSpace, args...) =
   bradley_terry_linspace(args...)
 bradley_terry(::BTLogSpace, args...) =
   bradley_terry_logspace(args...)
+bradley_terry(::BTUtility, args...) =
+  bradley_terry_utility(args...)
+bradley_terry(::BTThurstoneMosteller, args...) =
+  thurstone_mosteller_utility(args...)
 
 """
     bradley_terry_linspace(x, y, d)
