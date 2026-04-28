@@ -6,7 +6,7 @@ export db_to_df
 
 include("Model.jl")
 using .Model
-export fit_model, gen_ids, BTLinSpace, BTLogSpace
+export fit_model, gen_ids, BTLinSpace, BTLogSpace, BTUtility, BTThurstoneMosteller
 
 include("Visualization.jl")
 using .Visualization
