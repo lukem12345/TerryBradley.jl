@@ -46,21 +46,21 @@ end
 
 That is,
 
-$\alpha_k \sim \mathcal{HN}(0, 1, [0, \infty)), \quad k = 1, \ldots, d,$
-
 $\theta_i = \log \alpha_{x_{i,1}} - \log \alpha_{x_{i,2}},$
-
 $y_i \sim \text{Bernoulli}(\text{logit}^{-1}(\theta_i)),$
+
+$\theta_i = \frac{\alpha_{x_{i,1}}}{\alpha_{x_{i,1}} + \alpha_{x_{i,2}}},$
+$y_i \sim \text{Bernoulli} \left(\text{clamp}(\theta_i, 0, 1)\right),$
+
+$\theta_i = \alpha_{x_{i,1}} - \alpha_{x_{i,2}}$
+$y_i \sim \text{Bernoulli} \left(\text{logit}^{-1}(\theta_i)\right),$
 
 and
 
-$\alpha_k \sim \mathcal{HN}(0, 1, [0, \infty)), \quad k = 1, \ldots, d,$
+$\theta_i = \alpha_{x_{i,1}} - \alpha_{x_{i,2}}$
+$y_i \sim \text{Bernoulli} \left(\Phi(\theta_i)\right).$
 
-$\theta_i = \frac{\alpha_{x_{i,1}}}{\alpha_{x_{i,1}} + \alpha_{x_{i,2}}},$
-
-$y_i \sim \text{Bernoulli} \left(\text{clamp}(\theta_i, 0, 1)\right).$
-
-(The clamp function is not strictly necessarily in the continuous case, but is needed for numerical purposes.)
+(The clamp function is not strictly necessarily in the continuous case, but is needed for numerical purposes. The `BernoulliLogit` function interprets its input as log-odds.)
 
 The first of these was written by Damon C. Roberts to replicate a Stan model for benchmarking purposes. The second of these is the result of some experiments I was making on how to improve the sampling speed. It is algebraically equivalent to the first model; the `BernoulliLogit` function takes logodds as its argument.
 
