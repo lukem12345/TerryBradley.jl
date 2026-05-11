@@ -66,40 +66,69 @@ The first of these was written by Damon C. Roberts to replicate a Stan model for
 
 The second and third models are written using the "utility" formulation of the parameters $a$, as opposed to the first two which interpret the parameters as the "playing strengths"/ "Spielstärken". This utility formulation of the Bradley-Terry model is much faster to sample. The Thurstone-Mosteller model is similar to the Bradley-Terry model, but performs probit regression. These two models should yield the same rankings given sufficient data.
 
-Some quick benchmarks (just using `@time`):
-Original (log-space):
+Here are some quick benchmarks. Note that you can compare the effective sample size (ESS) and other relevant metrics by examing the output of `fit_model` in your REPL. For the Bradely-Terry formulations, we use the NUTS sampler, and for the Thurstone-Mosteller model, we use Turing.jl's HMC sampler for autodiff compatibility reasons. The Thurstone-Mosteller model's timings are thus less directly comparable, but I include them here for completeness' sake.
+
+`BTLogSpace:`
 ```julia
 BenchmarkTools.Trial: 2 samples with 1 evaluation per sample.
- Range (min … max):  184.426 s … 220.521 s  ┊ GC (min … max): 0.67% … 0.87%
- Time  (median):     202.474 s              ┊ GC (median):    0.78%
- Time  (mean ± σ):   202.474 s ±  25.523 s  ┊ GC (mean ± σ):  0.78% ± 0.14%
+ Range (min … max):  154.078 s … 175.401 s  ┊ GC (min … max): 0.53% … 0.50%
+ Time  (median):     164.740 s              ┊ GC (median):    0.51%
+ Time  (mean ± σ):   164.740 s ±  15.077 s  ┊ GC (mean ± σ):  0.51% ± 0.02%
 
   █                                                         █
   █▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█ ▁
-  184 s           Histogram: frequency by time          221 s <
+  154 s           Histogram: frequency by time          175 s <
 
- Memory estimate: 18.62 GiB, allocs estimate: 191333371.
+ Memory estimate: 11.22 GiB, allocs estimate: 38999567.
 ```
 
-New (linear-space):
+`BTLinSpace:`
 ```julia
-BenchmarkTools.Trial: 4 samples with 1 evaluation per sample.
- Range (min … max):  24.974 s … 113.788 s  ┊ GC (min … max): 2.41% … 1.17%
- Time  (median):     86.196 s              ┊ GC (median):    1.24%
- Time  (mean ± σ):   77.788 s ±  39.084 s  ┊ GC (mean ± σ):  1.35% ± 0.60%
+BenchmarkTools.Trial: 5 samples with 1 evaluation per sample.
+ Range (min … max):  25.879 s … 113.660 s  ┊ GC (min … max): 2.00% … 0.84%
+ Time  (median):     73.835 s              ┊ GC (median):    0.85%
+ Time  (mean ± σ):   67.010 s ±  37.719 s  ┊ GC (mean ± σ):  1.07% ± 0.57%
 
-  █                              █                █        █
-  █▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁█ ▁
-  25 s           Histogram: frequency by time          114 s <
+  █  █                           █          █              █
+  █▁▁█▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁▁▁▁▁▁▁█ ▁
+  25.9 s         Histogram: frequency by time          114 s <
 
- Memory estimate: 9.19 GiB, allocs estimate: 93300551.
+ Memory estimate: 4.81 GiB, allocs estimate: 18934406.
 ```
 
-... running on an M2 macbook pro with 24 GB of RAM. The variance on these times is large (and the number of samples is small!) so some more benchmarks should be performed. There are also other tricks like swapping out the autodiff backend that can be performed. This is just an internal Turing.jl vs Turing.jl comparison, so it would be interesting to see the same re-parameterization applied to a Stan model.
+`BTUtility:`
+```julia
+BenchmarkTools.Trial: 17 samples with 1 evaluation per sample.
+ Range (min … max):  16.462 s … 20.888 s  ┊ GC (min … max): 2.16% … 1.99%
+ Time  (median):     19.111 s             ┊ GC (median):    2.17%
+ Time  (mean ± σ):   18.740 s ±  1.234 s  ┊ GC (mean ± σ):  2.35% ± 0.31%
+
+  ▁ ▁    ▁    ▁     ▁         ▁   ▁▁█ █▁▁   ▁   ▁         ▁
+  █▁█▁▁▁▁█▁▁▁▁█▁▁▁▁▁█▁▁▁▁▁▁▁▁▁█▁▁▁███▁███▁▁▁█▁▁▁█▁▁▁▁▁▁▁▁▁█ ▁
+  16.5 s         Histogram: frequency by time        20.9 s <
+
+ Memory estimate: 4.01 GiB, allocs estimate: 15994700.
+```
+
+`BTThurstoneMosteller:`
+```julia
+BenchmarkTools.Trial: 15 samples with 1 evaluation per sample.
+ Range (min … max):  19.479 s …   21.961 s  ┊ GC (min … max): 1.33% … 1.92%
+ Time  (median):     20.995 s               ┊ GC (median):    1.42%
+ Time  (mean ± σ):   20.831 s ± 630.154 ms  ┊ GC (mean ± σ):  1.59% ± 0.27%
+
+  ▁      ▁         ▁        ▁▁   ▁▁   ▁▁▁  █▁▁              ▁
+  █▁▁▁▁▁▁█▁▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁██▁▁▁██▁▁▁███▁▁███▁▁▁▁▁▁▁▁▁▁▁▁▁▁█ ▁
+  19.5 s          Histogram: frequency by time           22 s <
+
+ Memory estimate: 2.85 GiB, allocs estimate: 11938267.
+```
+
+... running on an M2 macbook air with 24 GB of RAM. The variance on these times is large (and the number of samples is small!) so some more benchmarks should be performed. There are also other tricks like swapping out the autodiff backend that can be performed. This is just an internal Turing.jl vs Turing.jl comparison, so it would be interesting to see the same re-parameterization techniques applied to a Stan model.
 
 This original code for project is based off of Damon Roberts' [Python implementation](https://github.com/DamonCharlesRoberts/mlb_pred) of the Bradley-Terry model and the Julia port using Turing.jl discussed in [this blog post](https://blog.damoncroberts.io/posts/julia_nuts/). I am grateful for him open-sourcing the original benchmarking code. This code is released under the same license as the original `DamonCharlesRoberts/mlb_pred` repo.
 
-I wanted a complete Julia pipeline that captures:
+This package offers a complete Julia pipeline that captures:
 - accessing the MLB stats API
 - creating the duck db
 - learning the Terry-Bradley model
