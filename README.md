@@ -66,7 +66,7 @@ The first of these was written by Damon C. Roberts to replicate a Stan model for
 
 The second and third models are written using the "utility" formulation of the parameters $a$, as opposed to the first two which interpret the parameters as the "playing strengths"/ "Spielstärken". This utility formulation of the Bradley-Terry model is much faster to sample. The Thurstone-Mosteller model is similar to the Bradley-Terry model, but performs probit regression. These two models should yield the same rankings given sufficient data.
 
-Here are some quick benchmarks. Note that you can compare the effective sample size (ESS) and other relevant metrics by examing the output of `fit_model` in your REPL. For the Bradely-Terry formulations, we use the NUTS sampler, and for the Thurstone-Mosteller model, we use Turing.jl's HMC sampler for autodiff compatibility reasons. The Thurstone-Mosteller model's timings are thus less directly comparable, but I include them here for completeness' sake.
+Here are some quick benchmarks. Note that you can compare the effective sample size (ESS) per second and other relevant metrics by examing the output of `fit_model` in your REPL, calling `summarystats(fit)`. For the Bradely-Terry formulations, we use the NUTS sampler, and for the Thurstone-Mosteller model, we use Turing.jl's HMC sampler for autodiff compatibility reasons. The Thurstone-Mosteller model's timings are thus less directly comparable, but I include them here for completeness' sake.
 
 `BTLogSpace:`
 ```julia
